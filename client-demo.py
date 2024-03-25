@@ -1,6 +1,11 @@
+# Import necessary modules
 import socket
 import time
+import sys
+from threading import Thread
 
+player_names = ["Arya Stark", "Walter White", "Rick Grimes"]
+player_names_copy = player_names.copy()
 
 class Client:
     def __init__(self, host, port):
@@ -9,8 +14,14 @@ class Client:
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def connect_to_server(self):
-        self.client_socket.connect((self.host, self.port))
-        print("Connected to server.")
+        try:
+            print("Client started, listening for offer requests....")
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((self.host, self.port))
+            print(f"Received offer from server Mystic at address {self.host}, attempting to connect...")
+
+        except ConnectionRefusedError:
+            sys.exit()
 
     def send_player_name(self, player_name):
         self.client_socket.sendall(player_name.encode("utf-8") + b'\n')
@@ -21,38 +32,50 @@ class Client:
 
     def receive_message_from_server(self):
         message = self.client_socket.recv(1024).decode("utf-8")
-        print("Received message from server:", message)
+        return message
 
     def send_key_press_to_server(self, key):
         self.client_socket.sendall(key.encode("utf-8"))
+
+    def send_answer_to_server(self, answer):
+        self.client_socket.sendall(answer.encode("utf-8"))
 
     def disconnect(self):
         self.client_socket.close()
 
 
-def main():
-    client = Client("localhost", 12345)
+def start_client(client):
+    global player_names_copy
+
     client.connect_to_server()
-
-    # Prompt the user to enter their name
-    player_name = input("Enter your name: ")
+    # Enter player name
+    player_name = player_names_copy.pop(0)
     client.send_player_name(player_name)
-
-    # Wait for the game to start or additional players to join
-    print("Waiting for the game to start or additional players to join...")
-    time.sleep(10)
-
-    # Receive the game start message
+    # Wait for game start message
     client.receive_game_start_message()
 
-    # Receive and print messages from the server
-    while True:
-        #client.receive_message_from_server()
 
-        # Wait for user input and send it to the server
-        key = input("Press any key to send to the server: ")
-        client.send_key_press_to_server(key)
-    client.disconnect()
+def main():
+    global player_names_copy
+
+    client = Client("localhost", 12345)
+    receive_thread = Thread(target=start_client(client))
+    receive_thread.start()
+    while True:
+        response = client.receive_message_from_server()
+        if response.startswith("=="):
+            print(response)  # Print the question
+            answer = input("Enter your answer (Y/T/1 for True, N/F/0 for False): ").strip().lower()
+            client.send_answer_to_server(answer)
+        elif response.startswith("Game over!"):
+            print("Server disconnected, listening for offer requests...")
+            client.disconnect()
+            # time.sleep(1)
+            player_names_copy = player_names.copy()
+            receive_thread = Thread(target=start_client(client))
+            receive_thread.start()
+        else:
+            print(response)  # Print other messages from the server
 
 
 if __name__ == "__main__":
