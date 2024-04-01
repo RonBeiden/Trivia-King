@@ -6,6 +6,7 @@ import sys
 UDP_PORT = 13117
 MAGIC_COOKIE = b'\xab\xcd\xdc\xba'
 
+
 def receive_offer_messages():
     """Receive offer messages via UDP."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
@@ -18,7 +19,6 @@ def receive_offer_messages():
                 server_port = int.from_bytes(data[37:39], byteorder='big')
                 print(f"Received offer from server '{server_name}' at address 0.0.0.0:{server_port}, attempting to connect...")
                 connect_to_server(server_port)
-
 
 
 def connect_to_server(port):
