@@ -8,6 +8,7 @@ import struct
 player_names = ["Arya Stark", "Walter White", "Rick Grimes"]
 # player_names_copy = player_names.copy()
 
+
 class Client:
     def __init__(self, host, port):
         self.host = host

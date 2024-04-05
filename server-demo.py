@@ -48,6 +48,7 @@ class Server:
         self.player_names = ["Arya Stark", "Walter White", "Rick Grimes"]
         self.client_count = 0
 
+
     def start_init(self):
         self.players = []
         self.player_answers = {}
@@ -196,7 +197,6 @@ class Server:
         self.players.append((player_name, client_socket))
         print(f"Player {player_name} connected.")
 
-
     def reset_timer(self):
         if self.timer is not None:
             self.timer.cancel()  # Cancel existing timer
@@ -228,7 +228,6 @@ class Server:
         p_message = "".join(p_message)
 
         return p_message
-
 
 
     def send_message(self, message):
@@ -337,6 +336,7 @@ class Server:
     def run_server(self):
         self.start()
         threading.Thread(target=self.send_offer_announcements, daemon=True).start()
+
         self.accept_players()
 
 
