@@ -130,7 +130,9 @@ class Server:
         if not self.players:
             print("No players joined within 10 seconds. Restarting game...")
             self.rerun_server()
-
+        if(len(self.players) == 1):
+            print('Only one Player joined , Not enough to start game , Restarting')
+            self.rerun_server()
         ### Starting Game
         self.start_game()
 
@@ -326,6 +328,7 @@ class Server:
 
     def rerun_server(self):
         time.sleep(1)
+        self.player_names = ["Arya Stark", "Walter White", "Rick Grimes"]
         print("Restarting server...")
         self.start_init()
         threading.Thread(target=self.send_offer_announcements, daemon=True).start()

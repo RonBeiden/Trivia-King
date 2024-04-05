@@ -47,13 +47,15 @@ class Client:
     #                 )
     #                 return server_ip, tcp_port
     def get_offer_from_server(self):
-        print("Client started, listening for UDP messages....")
+        print(f"Client started, listening for UDP messages.... on {self.SERVER_UDP_PORT}")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT,1)
             udp_socket.bind(("", self.SERVER_UDP_PORT))
             try:
                 while True:
-                    data, addr = self.udp_socket.recvfrom(1024)
+                    print("Waiting for message...")
+                    data, addr = udp_socket.recvfrom(1024)
+                    print("Received")
                     magic_cookie, message_type, server_name, tcp_port = struct.unpack(
                                     "!Ib32sH", data
                                 )
@@ -63,6 +65,7 @@ class Client:
                         print(
                             f'Received offer from server "{server_name}" at address {server_ip}, attempting to connect...'
                         )
+                        print(f'server_ip: {server_ip} , tcp_port: {tcp_port}')
                         return server_ip , tcp_port
             except OSError as e:
                 print(f"Error: {e}")
@@ -84,9 +87,12 @@ class Client:
                 if message:
                     print(message, end="")
                 return message
-            except socket.timeout as timeout:
-                # print(f"Error receiving message: {timeout}")
-                continue
+            except (ConnectionResetError, socket.timeout) as error:
+                if isinstance(error, ConnectionResetError):
+                    print("Connection reset by peer.")
+                    self.disconnect()
+                elif isinstance(error, socket.timeout):
+                    continue
 
 
     def send_key_press_to_server(self, key):
@@ -95,11 +101,12 @@ class Client:
     def send_answer_to_server(self, answer):
         self.client_socket.send(answer.encode("utf-8"))
 
-    def disconnect(self):
+    def disconnect(self): #disconnect and rerun
         self.client_socket.close()
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.udp_socket.close()
         print('“Server disconnected, listening for offer requests....')
-        self.get_offer_from_server()
+        self.start_client()
 
 
     # def game_handler(self,server_ip,tcp_port):
@@ -109,44 +116,44 @@ class Client:
         #     self.send_message_to_server()
 
 
-def start_client(client):
-    server_ip,tcp_port = client.get_offer_from_server()
-    print("Connecting using TCP to server IP:",server_ip)
-    client.client_socket.connect((server_ip, tcp_port))
-    client.client_socket.settimeout(1)
-    client.receive_game_start_message()
+    def start_client(self):
+        server_ip,tcp_port = self.get_offer_from_server()
+        print("Connecting using TCP to server IP:",server_ip)
+        self.client_socket.connect((server_ip, tcp_port))
+        self.client_socket.settimeout(1)
+        self.receive_game_start_message()
 
-    # Wait for the server to assign a name to the client
-    player_name = client.receive_message_from_server()
+        # Wait for the server to assign a name to the client
+        player_name = self.receive_message_from_server()
 
-    # Handle the case where the server sends a "No names available" message
-    if player_name == "No names available.":
-        print(player_name)
-        client.disconnect()
-        return
+        # Handle the case where the server sends a "No names available" message
+        if player_name == "No names available.":
+            print(player_name)
+            self.disconnect()
 
-    print(f"Assigned name: {player_name}")
 
-    # Loop for receiving questions and sending answers
-    while True:
-        response = client.receive_message_from_server()
-        if response.startswith("=="):
-            print(response)  # Print the question
-            answer = input("Enter your answer (Y/T/1 for True, N/F/0 for False): ").strip().lower()
-            client.send_answer_to_server(answer)
-        elif response.startswith("Game over!"):
-            print("Server disconnected, listening for offer requests...")
-            client.disconnect()
-            break
-        else:
-            print(response)  # Print other messages from the server
+        print(f"Assigned name: {player_name}")
 
-    print("Game over!")
+        # Loop for receiving questions and sending answers
+        while True:
+            response = self.receive_message_from_server()
+            if response.startswith("=="):
+                print(response)  # Print the question
+                answer = input("Enter your answer (Y/T/1 for True, N/F/0 for False): ").strip().lower()
+                self.send_answer_to_server(answer)
+            elif response.startswith("Game over!"):
+                print("Server disconnected, listening for offer requests...")
+                self.disconnect()
+                break
+            else:
+                print(response)  # Print other messages from the server
+
+        print("Game over!")
 
 
 def main():
     client = Client("127.0.0.1", 12345)
-    start_client(client)
+    client.start_client()
 
 
 if __name__ == "__main__":
