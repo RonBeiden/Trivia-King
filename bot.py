@@ -2,11 +2,17 @@ import random
 import threading
 import sys
 from client import Client
+import uuid
 
 
 class Bot(Client):
     def __init__(self, host, port):
         super().__init__(host, port)
+
+    def send_bot_name(self):
+        unique_id = uuid.uuid4()
+        bot_name = f"Bot_{unique_id}"
+        self.send_player_name(bot_name)
 
     def choose_random_answer(self):
         # Choose a random answer (Y/T/1 for True, N/F/0 for False)

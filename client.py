@@ -5,13 +5,7 @@ import sys
 from threading import Thread, Lock
 import threading
 import struct
-import signal
 from inputimeout import inputimeout, TimeoutOccurred
-
-player_names = ["Arya Stark", "Walter White", "Rick Grimes"]
-
-
-# player_names_copy = player_names.copy()
 
 
 class Client:
@@ -23,36 +17,16 @@ class Client:
         self.SERVER_UDP_PORT = 13117
         self.MAGIC_COOKIE = 0xABCDDCBA
         self.OFFER_MESSAGE_TYPE = 0x2
-
-    # def connect_to_server(self):
-    #     try:
-    #         print("Client started, listening for offer requests....")
-    #         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #         self.client_socket.connect((self.host, self.port))
-    #         print("Waiting for offer from server...")
-    #         offer_msg = self.client_socket.recv(1024).decode("utf-8")
-    #         server_name = offer_msg.split(" ")[3]  # Extract server name from offer message
-    #         print(f"Received offer from server {server_name} at address {self.host}, attempting to connect...")
-    #     except ConnectionRefusedError:
-    #         sys.exit()
-    # def listen_for_offers():
-    #     print("Client started, listening for offer requests...")
-    #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-    #         udp_socket.bind(("", SERVER_UDP_PORT))
-    #
-    #         while True:
-    #             data, address = udp_socket.recvfrom(1024)
-    #             magic_cookie, message_type, server_name, tcp_port = struct.unpack(
-    #                 "!Ib32sH", data
-    #             )
-    #             server_name = server_name.decode().strip("\x00")
-    #
-    #             if magic_cookie == MAGIC_COOKIE and message_type == OFFER_MESSAGE_TYPE:
-    #                 server_ip = address[0]
-    #                 print(
-    #                     f'Received offer from server "{server_name}" at address {server_ip}, attempting to connect...'
-    #                 )
-    #                 return server_ip, tcp_port
+        self.colors = {
+            'red': '\033[91m',
+            'green': '\033[92m',
+            'yellow': '\033[93m',
+            'blue': '\033[94m',
+            'magenta': '\033[95m',
+            'cyan': '\033[96m',
+            'white': '\033[97m',
+            'reset': '\033[0m'
+        }
 
     def get_offer_from_server(self):
         print(f"Client started, listening for UDP messages.... on {self.SERVER_UDP_PORT}")
@@ -76,8 +50,8 @@ class Client:
                         )
                         print(f'server_ip: {server_ip} , tcp_port: {tcp_port}')
                         return server_ip, tcp_port
-            except OSError as e:
-                print(f"Error: {e}")
+            except OSError:
+                pass
 
     def send_player_name(self, player_name):
         self.client_socket.sendall(player_name.encode("utf-8") + b'\n')
@@ -86,15 +60,30 @@ class Client:
         try:
             game_start_message = self.client_socket.recv(1024).decode("utf-8")
             print(game_start_message)
-        except Exception as e:
-            print(e)
+        except Exception:
+            pass
+
+    def print_color(self, color, message):
+        # Check if the specified color exists, otherwise default to white
+        color_code = self.colors.get(color, self.colors['white'])
+        # Send the colored message to the player
+        print(color_code + message + self.colors['reset'], end="")
 
     def receive_message_from_server(self):
         while True:
             try:
                 message = self.client_socket.recv(1024).decode("utf-8")
                 if message:
-                    print(message, end="")
+                    if message.startswith("You lose"):
+                        self.print_color("red", message)
+                    elif message.startswith("Game over!\nCongratulations to the winner"):
+                        self.print_color("green", message)
+                    elif message.startswith("Game Over"):
+                        self.print_color("yellow", message)
+                    elif message.startswith("Welcome to the game!"):
+                        self.print_color("magenta", message)
+                    else:
+                        print(message, end="")
                 return message
             except (ConnectionResetError, socket.timeout) as error:
                 if isinstance(error, ConnectionResetError):
@@ -116,12 +105,6 @@ class Client:
         print('Server disconnected, listening for offer requests....')
         self.start_client()
 
-    # def game_handler(self,server_ip,tcp_port):
-    # with self.client_socket as tcp_socket:
-    #     tcp_socket.connect(server_ip,tcp_port)
-    #     Thread(target=self.receive_message_from_server).start()
-    #     self.send_message_to_server()
-
     def input(self, enter_input):
         answer = None
         try:
@@ -134,6 +117,8 @@ class Client:
         server_ip, tcp_port = self.get_offer_from_server()
         print("Connecting using TCP to server IP:", server_ip)
         self.client_socket.connect((server_ip, tcp_port))
+        self.send_bot_name()
+
         self.client_socket.settimeout(1)
         self.receive_game_start_message()
 
@@ -148,8 +133,6 @@ class Client:
             print(player_name)
             self.disconnect()
 
-        # print(f"Assigned name: {player_name}")
-
         # Loop for receiving questions and sending answers
         while True:
             response = self.receive_message_from_server()
@@ -162,6 +145,8 @@ class Client:
                     self.send_answer_to_server(answer)
                 else:
                     print("\n")
+            elif response.startswith("You lose"):
+                continue
             elif response.startswith("Game over!"):
                 self.disconnect()
                 break
@@ -169,6 +154,9 @@ class Client:
                 continue  # Print other messages from the server
 
         print("Game over!")
+
+    def send_bot_name(self):
+        self.send_player_name("")
 
 
 def main():
