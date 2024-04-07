@@ -310,7 +310,8 @@ class Server:
         elif len(correct_players) > 1:
             if wrong_players_soc:
                 for player in wrong_players_soc:
-                    player.send("You lose\n").encode("utf-8")
+                    #player.send("You lose\n").encode("utf-8")
+                    player.send(b"You lose\n")
 
             # Multiple players answered correctly, continue the game for the next round
             print("Multiple players answered correctly. Continuing to the next round...")
