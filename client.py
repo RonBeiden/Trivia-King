@@ -118,9 +118,11 @@ class Client:
 
     def start_client(self):
         # if not self.UDP_PORT and not self.TCP_PORT:
-        self.SERVER_IP, self.TCP_PORT = self.get_offer_from_server(11110, 12000)
-        self.client_socket.connect((self.SERVER_IP, self.TCP_PORT))
-
+        try:
+            self.SERVER_IP, self.TCP_PORT = self.get_offer_from_server(11110, 11210)
+            self.client_socket.connect((self.SERVER_IP, self.TCP_PORT))
+        except Exception:
+            self.disconnect()
 
         print("Connecting using TCP to server IP:", self.SERVER_IP)
         self.send_bot_name()
