@@ -61,7 +61,7 @@ class Server:
 
         self.threads = []
         self.round = 0
-        self.winners = []
+        self.winners = {}
         self.curr_winner = None
         self.lock = threading.Lock()
         self.player_names = [
@@ -79,6 +79,22 @@ class Server:
         self.client_count = 0
         self.full_player = {}
         self.active_players = []
+        self.inputs = {}
+
+    def game_statistics(self):
+        max_value_wins = max(self.winners.values())
+        keys_with_max_value = [key for key, value in self.winners.items() if self.value == max_value_wins]
+        max_winner = f"Player/s with most wins in game history: {keys_with_max_value}"
+
+        max_value_answer = max(self.inputs.values())
+        keys_with_max_value_answer = [key for key, value in self.inputs.items() if self.value == max_value_answer]
+        most_common_answer = f"The most common answer is: {keys_with_max_value_answer}"
+
+        self.send_message(max_winner)
+        self.send_message(most_common_answer)
+        print(max_winner)
+        print(most_common_answer)
+        time.sleep(1)
 
     def start_init(self):
         self.players = []
@@ -245,6 +261,8 @@ class Server:
                     # Set a timeout for receiving data
                     player_socket.settimeout(1)
                     data = player_socket.recv(1024).decode("utf-8").strip()
+                    if data.lower() in ['y', 't', '1', 'n', 'f', '0']:
+                        self.inputs[input] = self.inputs.get(input, 0) + 1
 
                     # Reset the timeout after receiving data
                     player_socket.settimeout(None)
@@ -271,7 +289,7 @@ class Server:
                     continue
                 self.process_answers()
                 break
-        new_q_message = "10 Seconds have passed and Not all players answered picking another question"
+        new_q_message = "10 Seconds have passed and Not all players answered picking another question \n"
         self.send_message(new_q_message)
         print(new_q_message)
         self.send_question()
@@ -297,7 +315,7 @@ class Server:
             # Only one player answered correctly, declare them as the winner
             winner = next(iter(correct_players))
             self.curr_winner = winner
-            self.winners.append(winner)
+            self.winners[winner] = self.winners.get(winner, 0) + 1
             self.send_message(f"{winner} is correct! {winner} wins!\n")
             time.sleep(1)
             for player in wrong_players_soc:
@@ -309,7 +327,7 @@ class Server:
         elif len(correct_players) > 1:
             if wrong_players_soc:
                 for player in wrong_players_soc:
-                    #player.send("You lose\n").encode("utf-8")
+                    # player.send("You lose\n").encode("utf-8")
                     player.send(b"You lose\n")
 
             # Multiple players answered correctly, continue the game for the next round
@@ -340,6 +358,8 @@ class Server:
         # Send summary message to all players
         summary_msg = f"Game over!\nCongratulations to the winner: {self.curr_winner}\n"
         self.send_message(summary_msg)
+        time.sleep(1)
+        self.game_statistics()
         time.sleep(1)
         print("Game over, Closing connections...")
 
