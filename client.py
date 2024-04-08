@@ -78,7 +78,7 @@ class Client:
                         self.print_color("red", message)
                     elif message.startswith("Game over!\nCongratulations to the winner"):
                         self.print_color("green", message)
-                    elif message.startswith("Game Over"):
+                    elif message.startswith("Game Statistics:"):
                         self.print_color("yellow", message)
                     elif message.startswith("Welcome to the game!"):
                         self.print_color("magenta", message)

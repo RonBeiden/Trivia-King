@@ -82,18 +82,19 @@ class Server:
         self.inputs = {}
 
     def game_statistics(self):
+        statistics_message = "Game Statistics:\n"
         max_value_wins = max(self.winners.values())
-        keys_with_max_value = [key for key, value in self.winners.items() if self.value == max_value_wins]
-        max_winner = f"Player/s with most wins in game history: {keys_with_max_value}"
+        keys_with_max_value = [key for key, value in self.winners.items() if value == max_value_wins]
+        keys_with_max_value = " ".join(keys_with_max_value)
+        max_winner = f"Players with most wins in game history: {keys_with_max_value}\n"
 
         max_value_answer = max(self.inputs.values())
-        keys_with_max_value_answer = [key for key, value in self.inputs.items() if self.value == max_value_answer]
-        most_common_answer = f"The most common answer is: {keys_with_max_value_answer}"
+        keys_with_max_value_answer = [key for key, value in self.inputs.items() if value == max_value_answer]
+        most_common_answer = f"The most common answer is: {keys_with_max_value_answer}\n"
 
-        self.send_message(max_winner)
-        self.send_message(most_common_answer)
-        print(max_winner)
-        print(most_common_answer)
+        final_message = statistics_message + max_winner + most_common_answer
+        self.send_message(final_message)
+        print(final_message)
         time.sleep(1)
 
     def start_init(self):
@@ -185,6 +186,7 @@ class Server:
                 player_name = self.player_names[self.client_count]
                 self.client_count += 1
             else:
+                print("")
                 player_name = self.player_name_bot
 
         self.players.append((player_name, client_socket))
@@ -227,7 +229,8 @@ class Server:
             for i, player in enumerate(self.active_players):
                 curr = i
                 player[1].send(message.encode("utf-8"))
-        except (ConnectionAbortedError, BrokenPipeError) as e:
+        except Exception as e:
+            print(f"The error is: {e}")
             print("a client disconnected, rerunning server")
             self.active_players.pop(curr)
             self.connection_reset()
@@ -262,7 +265,7 @@ class Server:
                     player_socket.settimeout(1)
                     data = player_socket.recv(1024).decode("utf-8").strip()
                     if data.lower() in ['y', 't', '1', 'n', 'f', '0']:
-                        self.inputs[input] = self.inputs.get(input, 0) + 1
+                        self.inputs[data] = self.inputs.get(data, 0) + 1
 
                     # Reset the timeout after receiving data
                     player_socket.settimeout(None)
@@ -356,10 +359,10 @@ class Server:
 
     def game_over(self):
         # Send summary message to all players
+        self.game_statistics()
+        time.sleep(1)
         summary_msg = f"Game over!\nCongratulations to the winner: {self.curr_winner}\n"
         self.send_message(summary_msg)
-        time.sleep(1)
-        self.game_statistics()
         time.sleep(1)
         print("Game over, Closing connections...")
 

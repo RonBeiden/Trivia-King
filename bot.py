@@ -11,7 +11,7 @@ class Bot(Client):
 
     def send_bot_name(self):
         unique_id = uuid.uuid4()
-        bot_name = f"BOT_{unique_id}"
+        bot_name = f"\nBOT_{unique_id}"
         self.send_player_name(bot_name)
 
     def choose_random_answer(self):
