@@ -47,3 +47,6 @@ The client application connects to the server to participate in the trivia game.
 
 ### Contributors
 - Developed by Ron Beiden, Eyal Ben Barouch and Gilad Schwarz
+
+### ChatGPT link
+- [link](https://chat.openai.com/share/9c42bbaf-64a8-4aca-aff3-b4ae69e785f7)
