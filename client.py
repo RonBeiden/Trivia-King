@@ -5,6 +5,20 @@ from inputimeout import inputimeout, TimeoutOccurred
 
 
 class Client:
+    """
+    Represents a client connecting to the trivia game server.
+
+    Attributes:
+        host (str): The hostname of the server.
+        client_socket: The TCP socket for communication with the server.
+        udp_socket: The UDP socket for broadcast communication.
+        MAGIC_COOKIE (int): A unique identifier used in communication with the server.
+        OFFER_MESSAGE_TYPE (int): The message type for offer announcements.
+        UDP_PORT (int): The UDP port for communication with the server.
+        TCP_PORT (int): The TCP port for communication with the server.
+        SERVER_IP (str): The IP address of the server.
+        colors (dict): A dictionary containing ANSI escape codes for color formatting.
+    """
     def __init__(self, host):
         self.host = host
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -26,6 +40,20 @@ class Client:
         }
 
     def get_offer_from_server(self, portstart, portend):
+        """
+        Listen for offer messages from the server on UDP within a specified port range.
+        Continuously listens for offer messages from the server on UDP ports within the specified range.
+        When an offer message is received, validates it and extracts relevant information (server IP and TCP port).
+        Sets the client's UDP port, TCP port, and server IP attributes accordingly.
+
+        Args:
+            portstart (int): The starting port of the range to listen on.
+            portend (int): The ending port of the range to listen on.
+
+        Returns:
+            tuple: A tuple containing the server's IP address and TCP port if a valid offer message is received,
+                   or None if no valid offer message is received within the specified range.
+        """
         print(f"Client started, listening for UDP messages.... in range of {portstart} to {portend}")
         for port in range(portstart, portend + 1):
             print(port)
@@ -60,9 +88,27 @@ class Client:
                     pass
 
     def send_player_name(self, player_name):
+        """
+        Send the player's name to the server.
+        Encodes the player's name as UTF-8 and sends it to the server through the client socket.
+
+        Args:
+            player_name (str): The name of the player.
+
+        Returns:
+            None
+        """
         self.client_socket.sendall(player_name.encode("utf-8") + b'\n')
 
     def receive_game_start_message(self):
+        """
+        Receive the game start message from the server.
+        Attempts to receive the game start message from the server through the client socket.
+        If successful, decodes and prints the message.
+
+        Returns:
+            None
+        """
         try:
             game_start_message = self.client_socket.recv(1024).decode("utf-8")
             print(game_start_message)
@@ -70,12 +116,34 @@ class Client:
             pass
 
     def print_color(self, color, message):
+        """
+        Print a message in the specified color.
+        Checks if the specified color exists in the color dictionary; if not, defaults to white.
+        Prints the message with the specified color.
+
+        Args:
+            color (str): The name of the color to print the message in.
+                         Possible values: 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'
+            message (str): The message to be printed.
+
+        Returns:
+            None
+        """
         # Check if the specified color exists, otherwise default to white
         color_code = self.colors.get(color, self.colors['white'])
         # Send the colored message to the player
         print(color_code + message + self.colors['reset'], end="")
 
     def receive_message_from_server(self):
+        """
+        Receive a message from the server and process it accordingly.
+        Continuously listens for messages from the server through the client socket.
+        Processes the received message based on its content and prints it with the appropriate color.
+        Handles ConnectionResetError and socket.timeout exceptions gracefully.
+
+        Returns:
+            str: The received message from the server.
+        """
         while True:
             try:
                 message = self.client_socket.recv(1024).decode("utf-8")
@@ -99,9 +167,29 @@ class Client:
                     continue
 
     def send_answer_to_server(self, answer):
+        """
+        Send the player's answer to the server.
+        Encodes the player's answer as UTF-8 and sends it to the server through the client socket.
+
+        Args:
+            answer (str): The player's answer.
+
+        Returns:
+            None
+        """
         self.client_socket.send(answer.encode("utf-8"))
 
     def disconnect(self):  # disconnect and rerun
+        """
+        Disconnect from the server and prepare to reconnect.
+        Closes the client socket and creates a new one for potential reconnection.
+        Closes the UDP socket.
+        Prints a message indicating disconnection and readiness to listen for offer requests.
+        Restarts the client.
+
+        Returns:
+            None
+        """
         self.client_socket.close()
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.udp_socket.close()
@@ -109,6 +197,17 @@ class Client:
         self.start_client()
 
     def input(self, enter_input):
+        """
+        Get input from the user with a timeout.
+        Displays the prompt to the user and waits for input for a maximum of 10 seconds.
+        If no input is received within the timeout period, returns None.
+
+        Args:
+            enter_input (str): The prompt message for the user.
+
+        Returns:
+            str or None: The input provided by the user or None if no input is received within the timeout.
+        """
         answer = None
         try:
             answer = inputimeout(prompt=enter_input, timeout=10)
@@ -117,6 +216,17 @@ class Client:
         return answer
 
     def start_client(self):
+        """
+        Start the client and connect to the server.
+
+        Attempts to connect to the server using TCP/IP protocol.
+        If successful, sends the bot's name to the server and waits for the game to start.
+        Receives a player name assigned by the server and handles various scenarios based on the received messages.
+        Enters a loop to receive questions from the server and send answers until the game ends.
+
+        Returns:
+            None
+        """
         # if not self.UDP_PORT and not self.TCP_PORT:
         try:
             self.SERVER_IP, self.TCP_PORT = self.get_offer_from_server(11110, 11210)
@@ -164,6 +274,13 @@ class Client:
         print("Game over!")
 
     def send_bot_name(self):
+        """
+        Send the bot's name to the server.
+        Sends an empty string as the bot's name to the server using the `send_player_name` method.
+
+        Returns:
+            None
+        """
         self.send_player_name("")
 
 
