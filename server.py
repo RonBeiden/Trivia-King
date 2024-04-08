@@ -211,7 +211,7 @@ class Server:
             for i, player in enumerate(self.active_players):
                 curr = i
                 player[1].send(message.encode("utf-8"))
-        except ConnectionAbortedError:
+        except (ConnectionAbortedError, BrokenPipeError) as e:
             print("a client disconnected, rerunning server")
             self.active_players.pop(curr)
             self.connection_reset()
@@ -271,8 +271,9 @@ class Server:
                     continue
                 self.process_answers()
                 break
-
-        print("10 Seconds have passed and Not all players answered picking another question")
+        new_q_message = "10 Seconds have passed and Not all players answered picking another question"
+        self.send_message(new_q_message)
+        print(new_q_message)
         self.send_question()
 
     def process_answers(self):
