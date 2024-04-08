@@ -42,7 +42,7 @@ class Client:
                         "!Ib32sH", data
                     )
                     server_name = server_name.decode().strip("\x00")
-                    server_name = ''.join(char for char in server_name if char != ' ')
+                    #server_name = ''.join(char for char in server_name if char != ' ')
                     if magic_cookie == self.MAGIC_COOKIE and message_type == self.OFFER_MESSAGE_TYPE:
                         server_ip = addr[0]
                         print(

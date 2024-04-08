@@ -9,7 +9,7 @@ UDP_PORT = 13117
 TCP_PORT = 12345
 MAGIC_COOKIE = 0xABCDDCBA
 OFFER_MESSAGE_TYPE = 0x2
-SERVER_NAME = "Mystic"
+SERVER_NAME = "Solidim"
 BROADCAST_INTERVAL = 1
 GAME_START_DELAY = 15
 GAME_DURATION = 15
@@ -21,10 +21,8 @@ class Server:
         self.TCP_PORT = 12345
         self.MAGIC_COOKIE = 0xABCDDCBA
         self.OFFER_MESSAGE_TYPE = 0x2
-        self.SERVER_NAME = "Mystic"
+        self.SERVER_NAME = SERVER_NAME
         self.BROADCAST_INTERVAL = 1
-        # self.GAME_START_DELAY = 15
-        # self.GAME_DURATION = 15
         self.host = host
         self.port = port
         self.addresses = {}
@@ -289,8 +287,8 @@ class Server:
 
         for pl in correct_players:
             self.active_players.append((pl, self.full_player[pl]))
-        wrong_players_soc = []
 
+        wrong_players_soc = []
         for pl in wrong_players:
             wrong_players_soc.append(self.full_player[pl])
 
@@ -319,8 +317,8 @@ class Server:
             self.start_game()  # Start the next round
 
         else:
-            # No players answered correctly, end the game
-            print("Not all players answered correctly. Sending another Question.")
+            # No players answered correctly, send another question
+            print("All players answered incorrectly. Sending another Question.")
             self.send_question()
 
     def connection_reset(self):
