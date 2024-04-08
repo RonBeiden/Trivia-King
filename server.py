@@ -7,6 +7,40 @@ import struct
 
 
 class Server:
+    """
+    A class representing the "Solidim" trivia game server
+
+    Attributes:
+        UDP_PORT (int): UDP port number for communication.
+        TCP_PORT (int): TCP port number for communication.
+        MAGIC_COOKIE (int): Unique identifier for protocol communication.
+        OFFER_MESSAGE_TYPE (int): Message type for an offer message.
+        SERVER_NAME (str): Name or identifier of the server.
+        BROADCAST_INTERVAL (int): Interval (in seconds) for broadcasting messages.
+        host (str): Host address.
+        port (int): Port number.
+        addresses (dict): Dictionary to store client addresses.
+        players (list): List to store player information.
+        player_answers (dict): Dictionary to store player answers.
+        real_answers (dict): Dictionary to store correct answers.
+        server_socket (socket.socket): TCP socket object for server-client communication.
+        server_udp_socket (socket.socket): UDP socket object for broadcasting.
+        state (bool): State of the server (True for active, False for waiting).
+        timer: Timer for state transition.
+        player_name_bot (str): Name of a bot player.
+        questions (dict): Dictionary containing trivia questions and answers.
+        threads (list): List to store thread objects.
+        round (int): Current round number.
+        winners (dict): Dictionary to store winners' information.
+        curr_winner (str): Current winner's name.
+        lock (threading.Lock): Threading lock object.
+        player_names (list): List of predefined player names.
+        client_count (int): Number of connected clients.
+        full_player (dict): Dictionary to store full player information.
+        active_players (list): List to store active player information.
+        inputs (dict): Dictionary to store input data.
+    """
+
     def __init__(self, host):
         self.UDP_PORT = 13117
         self.TCP_PORT = 12345
@@ -72,6 +106,20 @@ class Server:
         self.inputs = {}
 
     def game_statistics(self):
+        """
+        Calculate and display game statistics.
+
+        Calculates statistics such as the player/s with the most wins in game history
+        and the most common answer among players. Sends the statistics as messages to
+        connected clients and prints them to the server console.
+
+        Note:
+            This method assumes that self.winners and self.inputs dictionaries are populated
+            with relevant data.
+
+        Returns:
+            None
+        """
         statistics_message = "Game Statistics:\n"
         max_value_wins = max(self.winners.values())
         keys_with_max_value = [key for key, value in self.winners.items() if value == max_value_wins]
@@ -88,6 +136,15 @@ class Server:
         time.sleep(1)
 
     def start_init(self):
+        """
+        Reset game-related attributes to their initial state.
+
+        Clears player lists, resets game state, round number, current winner, and active players.
+
+        Returns:
+            None
+        """
+
         self.players = []
         self.player_answers = {}
         self.state = False
@@ -99,6 +156,16 @@ class Server:
         self.TCP_PORT = self.find_available_tcp_port(11111, 12000, self.UDP_PORT)
 
     def start_init_rerun(self):
+        """
+        Reset game-related attributes to their initial state for rerun.
+
+        Clears player lists, resets game state, round number, current winner, and active players.
+
+        This method is intended for resetting game-related attributes when restarting the game for a rerun.
+
+        Returns:
+            None
+        """
         self.players = []
         self.player_answers = {}
         self.state = False
@@ -108,12 +175,30 @@ class Server:
         self.active_players = []
 
     def start(self):
+        """
+         Start the server and initialize game state.
+         Binds the server socket to the specified port, listens for incoming connections,
+         and prints a message indicating that the server has started.
+
+
+         Returns:
+             None
+         """
         self.start_init()
         self.server_socket.bind(("", self.TCP_PORT))
         self.server_socket.listen()
         print("Server started, listening on Port", self.TCP_PORT)
 
     def send_offer_announcements(self):
+        """
+        Broadcast offer announcements to clients using UDP.
+
+        Constructs a message packet with a magic cookie, offer message type, server name, and TCP port.
+        Sends the packet as a UDP broadcast to all clients on the network.
+
+        Returns:
+            None
+        """
         message = struct.pack(
             "!Ib32sH",
             self.MAGIC_COOKIE,
@@ -130,6 +215,18 @@ class Server:
         print("======== Server broadcast Ended ==========")
 
     def accept_players(self):
+        """
+        Accept incoming player connections and start the game when enough players join.
+
+        Listens for incoming connections from players for a duration of 10 seconds or until
+        the maximum number of players (determined by the length of self.player_names) is reached.
+        Creates a thread to handle each player's connection and starts the thread.
+        Sets the server state to True and starts the game when enough players have joined.
+        Restarts the game if no players join within 10 seconds or only one player joins.
+
+        Returns:
+            None
+        """
         print("Accepting players")
         self.server_socket.settimeout(10)  # Set socket timeout to 10 seconds
         start_time = time.time()  # Record the start time
@@ -191,12 +288,29 @@ class Server:
         print(f"Player {player_name} connected.")
 
     def reset_timer(self):
+        """
+        Reset the game timer for the next round.
+        Cancels any existing timer and sets a new timer for 10 seconds,
+        after which the game will automatically start.
+
+        Returns:
+            None
+        """
         if self.timer is not None:
             self.timer.cancel()  # Cancel existing timer
         self.timer = Timer(10, self.start_game)  # Reset timer for 10 seconds
         self.timer.start()  # Start the timer
 
     def start_game(self):
+        """
+        Start the trivia game.
+        Changes the server state to game mode, increments the round number,
+        sends a welcome message with player names to all clients, and starts
+        the game logic by sending the first trivia question.
+
+        Returns:
+            None
+        """
         self.state = True  # Change state to game mode
         self.round += 1
         print(f"Starting round {self.round}...")
@@ -221,6 +335,15 @@ class Server:
         return p_message
 
     def send_message(self, message):
+        """
+        Send a message to all active players.
+        Sends the provided message to each active player in self.active_players list.
+        If an error occurs during sending, the method prints an error message and removes
+        the disconnected player from the active players list.
+
+        Returns:
+            None
+        """
         curr = 0
         try:
             for i, player in enumerate(self.active_players):
@@ -233,6 +356,15 @@ class Server:
             self.connection_reset()
 
     def send_question(self):
+        """
+        Send a trivia question to all active players.
+        Randomly selects a trivia question from the self.questions dictionary,
+        sends the question along with a players' count message to all active players,
+        and initiates the process to receive player answers.
+
+        Returns:
+            None
+        """
         question, answer = random.choice(list(self.questions.items()))
         self.real_answers = {question: answer}
 
@@ -247,6 +379,16 @@ class Server:
         self.receive_answers()
 
     def receive_answers(self):
+        """
+        Receive and process answers from active players.
+        Waits for answers from active players for a duration of 10 seconds.
+        Receives player answers and processes them. If all players have answered,
+        proceeds to process the answers. If not, sends a message to indicate
+        that not all players have answered and picks another question.
+
+        Returns:
+            None
+        """
         self.player_answers = {}
         start_time = time.time()  # Record the start time
         while True:
@@ -295,6 +437,15 @@ class Server:
         self.send_question()
 
     def process_answers(self):
+        """
+        Process player answers and handle game logic based on responses.
+        Compares player answers with the correct answer for the current question.
+        Determines winners, losers, and next steps based on player responses.
+        Sends appropriate messages to players to inform them of the game outcome.
+
+        Returns:
+            None
+        """
         first_question = next(iter(self.real_answers))
         correct_players = [player for player, response in self.player_answers.items() if
                            response == self.real_answers[first_question]]
@@ -341,6 +492,15 @@ class Server:
             self.send_question()
 
     def connection_reset(self):
+        """
+        Reset the game and send summary message to all players when a client disconnects.
+        Sends a summary message to all players indicating that the game is over and
+        will be reset due to a client disconnection. Closes all client connections
+        and restarts the server to accept new connections.
+
+        Returns:
+            None
+        """
         # Send summary message to all players
         summary_msg = f"Game over!\nReset game, a client disconnected\n"
         self.send_message(summary_msg)
@@ -355,6 +515,15 @@ class Server:
         self.rerun_server()
 
     def game_over(self):
+        """
+        Handle the game over scenario.
+
+        Displays game statistics, announces the winner to all players,
+        closes all client connections, and restarts the server to accept new connections.
+
+        Returns:
+            None
+        """
         # Send summary message to all players
         self.game_statistics()
         time.sleep(1)
@@ -371,6 +540,14 @@ class Server:
         self.rerun_server()
 
     def rerun_server(self):
+        """
+        Restart the server to accept new connections.
+        Resets server attributes for rerun, restarts offer announcements, and
+        accepts new player connections.
+
+        Returns:
+            None
+        """
         time.sleep(1)
         self.client_count = 0
         print("Restarting server...")
@@ -379,12 +556,32 @@ class Server:
         self.accept_players()
 
     def run_server(self):
+        """
+        Start the server and begin accepting player connections.
+        Starts the server and initiates offer announcements, then accepts player connections.
+
+        Returns:
+            None
+        """
         self.start()
         threading.Thread(target=self.send_offer_announcements, daemon=True).start()
 
         self.accept_players()
 
     def find_available_udp_port(self, start_port, end_port):
+        """
+        Find an available UDP port within a specified range.
+
+        Attempts to bind a socket to each port within the specified range to check for availability.
+        Returns the first available port found within the range.
+
+        Args:
+            start_port (int): The starting port of the range to search.
+            end_port (int): The ending port of the range to search.
+
+        Returns:
+            int: The first available UDP port found within the specified range.
+        """
         for port in range(start_port, end_port + 1):
             try:
                 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -398,6 +595,19 @@ class Server:
                     continue  # Re-raise other OSError types
 
     def find_available_tcp_port(self, start_port, end_port, udp_port):
+        """
+        Find an available TCP port within a specified range excluding the UDP port.
+        Attempts to bind a socket to each port within the specified range (excluding the UDP port)
+        to check for availability. Returns the first available port found within the range.
+
+        Args:
+            start_port (int): The starting port of the range to search.
+            end_port (int): The ending port of the range to search.
+            udp_port (int): The UDP port to exclude from the search.
+
+        Returns:
+            int: The first available TCP port found within the specified range (excluding the UDP port).
+        """
         for port in range(start_port, end_port + 1):
             if port != udp_port:
                 try:
