@@ -6,8 +6,8 @@ import uuid
 
 
 class Bot(Client):
-    def __init__(self, host, port):
-        super().__init__(host, port)
+    def __init__(self, host):
+        super().__init__(host)
 
     def send_bot_name(self):
         unique_id = uuid.uuid4()
@@ -26,7 +26,7 @@ class Bot(Client):
 
 
 def run_bot():
-    bot = Bot("127.0.0.1", 12345)
+    bot = Bot("127.0.0.1")
     bot.start_client()
 
 

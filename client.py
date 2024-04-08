@@ -1,22 +1,19 @@
 # Import necessary modules
 import socket
-import time
-import sys
-from threading import Thread, Lock
-import threading
 import struct
 from inputimeout import inputimeout, TimeoutOccurred
 
 
 class Client:
-    def __init__(self, host, port):
+    def __init__(self, host):
         self.host = host
-        self.port = port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.SERVER_UDP_PORT = 13117
         self.MAGIC_COOKIE = 0xABCDDCBA
         self.OFFER_MESSAGE_TYPE = 0x2
+        self.UDP_PORT = None
+        self.TCP_PORT = None
+        self.SERVER_IP = None
         self.colors = {
             'red': '\033[91m',
             'green': '\033[92m',
@@ -28,30 +25,39 @@ class Client:
             'reset': '\033[0m'
         }
 
-    def get_offer_from_server(self):
-        print(f"Client started, listening for UDP messages.... on {self.SERVER_UDP_PORT}")
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            udp_socket.bind(("", self.SERVER_UDP_PORT))
-            try:
-                while True:
-                    print("Waiting for message...")
-                    data, addr = udp_socket.recvfrom(1024)
-                    print("Received")
-                    magic_cookie, message_type, server_name, tcp_port = struct.unpack(
-                        "!Ib32sH", data
-                    )
-                    server_name = server_name.decode().strip("\x00")
-                    #server_name = ''.join(char for char in server_name if char != ' ')
-                    if magic_cookie == self.MAGIC_COOKIE and message_type == self.OFFER_MESSAGE_TYPE:
-                        server_ip = addr[0]
-                        print(
-                            f'Received offer from server "{server_name}" at address {server_ip}, attempting to connect...'
+    def get_offer_from_server(self, portstart, portend):
+        print(f"Client started, listening for UDP messages.... in range of {portstart} to {portend}")
+        for port in range(portstart, portend + 1):
+            print(port)
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
+                udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                udp_socket.settimeout(2)
+                udp_socket.bind(("", port))
+                try:
+                    while True:
+                        print("Waiting for message...")
+                        data, addr = udp_socket.recvfrom(1024)
+                        print("Received")
+
+                        magic_cookie, message_type, server_name, tcp_port = struct.unpack(
+                            "!Ib32sH", data
                         )
-                        print(f'server_ip: {server_ip} , tcp_port: {tcp_port}')
-                        return server_ip, tcp_port
-            except OSError:
-                pass
+                        server_name = server_name.decode().strip("\x00")
+                        # server_name = ''.join(char for char in server_name if char != ' ')
+                        if magic_cookie == self.MAGIC_COOKIE and message_type == self.OFFER_MESSAGE_TYPE:
+                            self.UDP_PORT = port
+                            self.TCP_PORT = tcp_port
+                            server_ip = addr[0]
+                            self.SERVER_IP = server_ip
+                            print(
+                                f'Received offer from server "{server_name}" at address {server_ip}, '
+                                f'attempting to connect...'
+                            )
+                            print(f'server_ip: {server_ip} , tcp_port: {tcp_port}')
+                            return server_ip, tcp_port
+                except OSError as e:
+                    print(f"Error occurred while listening on port {port} error is {e}")
+                    pass
 
     def send_player_name(self, player_name):
         self.client_socket.sendall(player_name.encode("utf-8") + b'\n')
@@ -92,9 +98,6 @@ class Client:
                 elif isinstance(error, socket.timeout):
                     continue
 
-    def send_key_press_to_server(self, key):
-        self.client_socket.sendall(key.encode("utf-8"))
-
     def send_answer_to_server(self, answer):
         self.client_socket.send(answer.encode("utf-8"))
 
@@ -114,9 +117,12 @@ class Client:
         return answer
 
     def start_client(self):
-        server_ip, tcp_port = self.get_offer_from_server()
-        print("Connecting using TCP to server IP:", server_ip)
-        self.client_socket.connect((server_ip, tcp_port))
+        # if not self.UDP_PORT and not self.TCP_PORT:
+        self.SERVER_IP, self.TCP_PORT = self.get_offer_from_server(11110, 12000)
+        self.client_socket.connect((self.SERVER_IP, self.TCP_PORT))
+
+
+        print("Connecting using TCP to server IP:", self.SERVER_IP)
         self.send_bot_name()
 
         self.client_socket.settimeout(1)
@@ -160,7 +166,7 @@ class Client:
 
 
 def main():
-    client = Client("127.0.0.1", 12345)
+    client = Client("127.0.0.1")
     client.start_client()
 
 

@@ -5,26 +5,16 @@ from threading import Timer, Thread
 import threading
 import struct
 
-UDP_PORT = 13117
-TCP_PORT = 12345
-MAGIC_COOKIE = 0xABCDDCBA
-OFFER_MESSAGE_TYPE = 0x2
-SERVER_NAME = "Solidim"
-BROADCAST_INTERVAL = 1
-GAME_START_DELAY = 15
-GAME_DURATION = 15
-
 
 class Server:
-    def __init__(self, host, port):
+    def __init__(self, host):
         self.UDP_PORT = 13117
         self.TCP_PORT = 12345
         self.MAGIC_COOKIE = 0xABCDDCBA
         self.OFFER_MESSAGE_TYPE = 0x2
-        self.SERVER_NAME = SERVER_NAME
+        self.SERVER_NAME = "Solidim"
         self.BROADCAST_INTERVAL = 1
         self.host = host
-        self.port = port
         self.addresses = {}
         self.players = []
         self.player_answers = {}
@@ -105,30 +95,38 @@ class Server:
         self.curr_winner = None
         self.full_player = {}
         self.active_players = []
+        self.UDP_PORT = self.find_available_udp_port(11111, 12000)
+        self.TCP_PORT = self.find_available_tcp_port(11111, 12000, self.UDP_PORT)
+
+    def start_init_rerun(self):
+        self.players = []
+        self.player_answers = {}
+        self.state = False
+        self.round = 0
+        self.curr_winner = None
+        self.full_player = {}
+        self.active_players = []
 
     def start(self):
         self.start_init()
-        self.server_socket.bind(("", self.port))
+        self.server_socket.bind(("", self.TCP_PORT))
         self.server_socket.listen()
-        print("Server started, listening on Port", self.port)
+        print("Server started, listening on Port", self.TCP_PORT)
 
     def send_offer_announcements(self):
-        broadcast_address = (self.host, self.port)  # Broadcast address and port
-        # offer_msg = f"offer from server {self.name} at address {self.host}:{self.port}"
         message = struct.pack(
             "!Ib32sH",
-            MAGIC_COOKIE,
-            OFFER_MESSAGE_TYPE,
-            SERVER_NAME.encode().ljust(32),
-            TCP_PORT,
+            self.MAGIC_COOKIE,
+            self.OFFER_MESSAGE_TYPE,
+            self.SERVER_NAME.encode().ljust(32),
+            self.TCP_PORT,
         )
         # Create UDP socket
-        print("Server broadcasting offers on UDP port", UDP_PORT)
+        print("Server broadcasting offers on UDP port", self.UDP_PORT)
 
         while not self.state:
-            self.server_udp_socket.sendto(message, ("<broadcast>", UDP_PORT))
-            time.sleep(BROADCAST_INTERVAL)
-            # print("Broadcast sent")
+            self.server_udp_socket.sendto(message, ("<broadcast>", self.UDP_PORT))
+            time.sleep(self.BROADCAST_INTERVAL)
         print("======== Server broadcast Ended ==========")
 
     def accept_players(self):
@@ -145,7 +143,6 @@ class Server:
                 self.player_name_bot = client_socket.recv(1024).decode().strip()
                 print("Client connected", addr, end="")
                 start_time = time.time()  # Reset the start time whenever a new player connects
-                # print("Reset Timer because new player connected")
             except socket.timeout:
                 continue  # Continue waiting if no new connections
 
@@ -377,7 +374,7 @@ class Server:
         time.sleep(1)
         self.client_count = 0
         print("Restarting server...")
-        self.start_init()
+        self.start_init_rerun()
         threading.Thread(target=self.send_offer_announcements, daemon=True).start()
         self.accept_players()
 
@@ -387,13 +384,38 @@ class Server:
 
         self.accept_players()
 
+    def find_available_udp_port(self, start_port, end_port):
+        for port in range(start_port, end_port + 1):
+            try:
+                server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                server_socket.bind(("localhost", port))
+                server_socket.close()
+                return port
+            except OSError as e:
+                if e.errno == 98:  # errno 98: Address already in use
+                    print(f"Port {port} is already in use. Trying the next port...")
+                else:
+                    continue  # Re-raise other OSError types
+
+    def find_available_tcp_port(self, start_port, end_port, udp_port):
+        for port in range(start_port, end_port + 1):
+            if port != udp_port:
+                try:
+                    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    server_socket.bind(("", port))
+                    server_socket.close()
+                    return port
+                except OSError as e:
+                    if e.errno in (98, 48):  # errno 98: Address already in use
+                        print(f"Port {port} is already in use. Trying the next port...")
+                    else:
+                        continue  # Re-raise other OSError types
+
 
 def main():
-    server = Server("127.0.0.1", 12345)
+    server = Server("127.0.0.1")
     server.run_server()
 
-
-# start (Intialize Server) -> send_offer_announcemts (Sends offer message on server) -> accept_players (recive clients as threads) ->for each client thread( handle_client -> reset_timer - > start game after 10 sec - > send_question -> recives answers-> process_answers -> start_game)
 
 if __name__ == "__main__":
     main()
