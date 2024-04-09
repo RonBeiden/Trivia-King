@@ -55,7 +55,7 @@ class Client:
                    or None if no valid offer message is received within the specified range.
         """
         print(f"Client started, listening for UDP messages.... in range of {portstart} to {portend}")
-        for port in range(portstart, portend + 1):
+        for port in range(portstart, portstart+2):
             print(port)
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
                 udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -159,12 +159,12 @@ class Client:
                     else:
                         print(message, end="")
                 return message
-            except (ConnectionResetError, socket.timeout) as error:
-                if isinstance(error, ConnectionResetError):
+            except Exception as error:
+                if isinstance(error, socket.timeout):
+                    continue
+                else:
                     print("Connection reset by peer.")
                     self.disconnect()
-                elif isinstance(error, socket.timeout):
-                    continue
 
     def send_answer_to_server(self, answer):
         """
@@ -177,7 +177,10 @@ class Client:
         Returns:
             None
         """
-        self.client_socket.send(answer.encode("utf-8"))
+        try:
+            self.client_socket.send(answer.encode("utf-8"))
+        except Exception as e:
+            self.disconnect()
 
     def disconnect(self):  # disconnect and rerun
         """
